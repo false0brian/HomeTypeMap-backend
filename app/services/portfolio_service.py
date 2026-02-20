@@ -11,16 +11,11 @@ from app.schemas.portfolio import (
 )
 
 
-def _compute_floor_plan_pins(portfolio_id: int) -> tuple[float, float, float, float]:
-    # Floor plan pin positions are normalized percentages so front can render
-    # pin-to-image matching even when source coordinates are missing.
+def _compute_floor_plan_pin(portfolio_id: int) -> tuple[float, float]:
+    # Normalized floor plan position (percentage).
     base_x = 18 + (portfolio_id * 17 % 64)
     base_y = 16 + (portfolio_id * 13 % 66)
-    before_x = float(base_x)
-    before_y = float(base_y)
-    after_x = min(92.0, before_x + 6.0)
-    after_y = min(92.0, before_y + 4.0)
-    return before_x, before_y, after_x, after_y
+    return float(min(92, base_x + 3)), float(min(92, base_y + 2))
 
 
 def get_complex_detail(db: Session, complex_id: int) -> ComplexDetailResponse | None:
@@ -123,17 +118,19 @@ def list_portfolios(
 
     items: list[PortfolioCard] = []
     for row in rows:
-        before_x, before_y, after_x, after_y = _compute_floor_plan_pins(row.id)
+        pin_x, pin_y = _compute_floor_plan_pin(row.id)
+        before_urls = [row.before_image_url] if row.before_image_url else []
+        after_urls = [row.after_image_url] if row.after_image_url else []
         items.append(
             PortfolioCard(
                 portfolio_id=row.id,
                 title=row.title,
                 before_image_url=row.before_image_url,
                 after_image_url=row.after_image_url,
-                floor_plan_before_x=before_x,
-                floor_plan_before_y=before_y,
-                floor_plan_after_x=after_x,
-                floor_plan_after_y=after_y,
+                before_image_urls=before_urls,
+                after_image_urls=after_urls,
+                floor_plan_pin_x=pin_x,
+                floor_plan_pin_y=pin_y,
                 work_scope=row.work_scope,
                 style=row.style,
                 budget_min_krw=row.budget_min_krw,
