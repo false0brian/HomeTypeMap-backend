@@ -11,6 +11,18 @@ from app.schemas.portfolio import (
 )
 
 
+def _compute_floor_plan_pins(portfolio_id: int) -> tuple[float, float, float, float]:
+    # Floor plan pin positions are normalized percentages so front can render
+    # pin-to-image matching even when source coordinates are missing.
+    base_x = 18 + (portfolio_id * 17 % 64)
+    base_y = 16 + (portfolio_id * 13 % 66)
+    before_x = float(base_x)
+    before_y = float(base_y)
+    after_x = min(92.0, before_x + 6.0)
+    after_y = min(92.0, before_y + 4.0)
+    return before_x, before_y, after_x, after_y
+
+
 def get_complex_detail(db: Session, complex_id: int) -> ComplexDetailResponse | None:
     complex_row = db.get(Complex, complex_id)
     if complex_row is None:
@@ -109,14 +121,19 @@ def list_portfolios(
         .offset(query.offset)
     ).all()
 
-    return PortfolioListResponse(
-        total=total,
-        items=[
+    items: list[PortfolioCard] = []
+    for row in rows:
+        before_x, before_y, after_x, after_y = _compute_floor_plan_pins(row.id)
+        items.append(
             PortfolioCard(
                 portfolio_id=row.id,
                 title=row.title,
                 before_image_url=row.before_image_url,
                 after_image_url=row.after_image_url,
+                floor_plan_before_x=before_x,
+                floor_plan_before_y=before_y,
+                floor_plan_after_x=after_x,
+                floor_plan_after_y=after_y,
                 work_scope=row.work_scope,
                 style=row.style,
                 budget_min_krw=row.budget_min_krw,
@@ -125,6 +142,6 @@ def list_portfolios(
                 vendor_id=row.vendor_id,
                 vendor_name=row.vendor_name,
             )
-            for row in rows
-        ],
-    )
+        )
+
+    return PortfolioListResponse(total=total, items=items)

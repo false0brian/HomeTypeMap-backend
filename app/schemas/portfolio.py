@@ -36,6 +36,10 @@ class PortfolioCard(BaseModel):
     title: str
     before_image_url: str | None = None
     after_image_url: str | None = None
+    floor_plan_before_x: float | None = None
+    floor_plan_before_y: float | None = None
+    floor_plan_after_x: float | None = None
+    floor_plan_after_y: float | None = None
     work_scope: WorkScopeType
     style: str
     budget_min_krw: int | None = None
