@@ -31,6 +31,15 @@ class ComplexDetailResponse(BaseModel):
     unit_types: list[UnitTypeChip]
 
 
+class FloorPlanPin(BaseModel):
+    pin_id: str
+    x: float
+    y: float
+    title: str | None = None
+    before_image_urls: list[str] = []
+    after_image_urls: list[str] = []
+
+
 class PortfolioCard(BaseModel):
     portfolio_id: int
     title: str
@@ -40,6 +49,7 @@ class PortfolioCard(BaseModel):
     after_image_urls: list[str] = []
     floor_plan_pin_x: float | None = None
     floor_plan_pin_y: float | None = None
+    floor_plan_pins: list[FloorPlanPin] = []
     work_scope: WorkScopeType
     style: str
     budget_min_krw: int | None = None

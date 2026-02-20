@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.models import Complex, FloorPlan, Portfolio, UnitType, Vendor
 from app.schemas.portfolio import (
     ComplexDetailResponse,
+    FloorPlanPin,
     PortfolioCard,
     PortfolioFilterQuery,
     PortfolioListResponse,
@@ -16,6 +17,41 @@ def _compute_floor_plan_pin(portfolio_id: int) -> tuple[float, float]:
     base_x = 18 + (portfolio_id * 17 % 64)
     base_y = 16 + (portfolio_id * 13 % 66)
     return float(min(92, base_x + 3)), float(min(92, base_y + 2))
+
+
+def _sample_image_urls(portfolio_id: int, side: str, pin_idx: int) -> list[str]:
+    palette = "f4efe8/3f3a34" if side == "before" else "e8f4eb/254739"
+    return [
+        f"https://placehold.co/960x640/{palette}?text={side.title()}+P{portfolio_id}-{pin_idx + 1}-1",
+        f"https://placehold.co/960x640/{palette}?text={side.title()}+P{portfolio_id}-{pin_idx + 1}-2",
+        f"https://placehold.co/960x640/{palette}?text={side.title()}+P{portfolio_id}-{pin_idx + 1}-3",
+    ]
+
+
+def _build_floor_plan_pins(portfolio_id: int, before_url: str | None, after_url: str | None) -> list[FloorPlanPin]:
+    base_x, base_y = _compute_floor_plan_pin(portfolio_id)
+    pins: list[FloorPlanPin] = []
+    for pin_idx in range(2):
+        x = min(94.0, base_x + pin_idx * 7.0)
+        y = min(94.0, base_y + pin_idx * 5.0)
+        before_images = _sample_image_urls(portfolio_id, "before", pin_idx)
+        after_images = _sample_image_urls(portfolio_id, "after", pin_idx)
+        if pin_idx == 0:
+            if before_url:
+                before_images[0] = before_url
+            if after_url:
+                after_images[0] = after_url
+        pins.append(
+            FloorPlanPin(
+                pin_id=f"{portfolio_id}-pin-{pin_idx + 1}",
+                x=x,
+                y=y,
+                title=f"포인트 {pin_idx + 1}",
+                before_image_urls=before_images,
+                after_image_urls=after_images,
+            )
+        )
+    return pins
 
 
 def get_complex_detail(db: Session, complex_id: int) -> ComplexDetailResponse | None:
@@ -121,6 +157,7 @@ def list_portfolios(
         pin_x, pin_y = _compute_floor_plan_pin(row.id)
         before_urls = [row.before_image_url] if row.before_image_url else []
         after_urls = [row.after_image_url] if row.after_image_url else []
+        floor_plan_pins = _build_floor_plan_pins(row.id, row.before_image_url, row.after_image_url)
         items.append(
             PortfolioCard(
                 portfolio_id=row.id,
@@ -131,6 +168,7 @@ def list_portfolios(
                 after_image_urls=after_urls,
                 floor_plan_pin_x=pin_x,
                 floor_plan_pin_y=pin_y,
+                floor_plan_pins=floor_plan_pins,
                 work_scope=row.work_scope,
                 style=row.style,
                 budget_min_krw=row.budget_min_krw,
