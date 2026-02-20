@@ -34,9 +34,6 @@ pytest -q
 - `tests/`: backend tests
 - `docs/api-contract.md`: API 계약 문서
 
-## CI
-- GitHub Actions: `.github/workflows/backend-ci.yml`
-
 ## API Version Policy
 - 기본 경로: `/api/v1`
 - breaking change는 `/api/v2`로 분리
