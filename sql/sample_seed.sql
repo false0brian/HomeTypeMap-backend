@@ -28,3 +28,25 @@ INSERT INTO portfolios (
   (9002, 101, 1002, 501, '84B 우드톤 욕실/주방 개선', 'https://cdn.example.com/9002-before.jpg', 'https://cdn.example.com/9002-after.jpg',
    'partial', 'wood', 18000000, 26000000, 18, '우드톤,아일랜드,욕실', '주방+욕실 중심 부분 공사')
 ON CONFLICT DO NOTHING;
+
+INSERT INTO floor_plan_pins (id, portfolio_id, x_ratio, y_ratio, title, sort_order)
+VALUES
+  (91001, 9001, 42.5, 36.0, '거실 포인트', 1),
+  (91002, 9001, 58.0, 47.0, '주방 포인트', 2),
+  (91003, 9002, 39.0, 34.0, '욕실 포인트', 1),
+  (91004, 9002, 63.5, 52.0, '현관 포인트', 2)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO floor_plan_pin_images (id, floor_plan_pin_id, image_side, image_url, sort_order)
+VALUES
+  (92001, 91001, 'before', 'https://cdn.example.com/9001-pin1-before-1.jpg', 1),
+  (92002, 91001, 'before', 'https://cdn.example.com/9001-pin1-before-2.jpg', 2),
+  (92003, 91001, 'after', 'https://cdn.example.com/9001-pin1-after-1.jpg', 1),
+  (92004, 91001, 'after', 'https://cdn.example.com/9001-pin1-after-2.jpg', 2),
+  (92005, 91002, 'before', 'https://cdn.example.com/9001-pin2-before-1.jpg', 1),
+  (92006, 91002, 'after', 'https://cdn.example.com/9001-pin2-after-1.jpg', 1),
+  (92007, 91003, 'before', 'https://cdn.example.com/9002-pin1-before-1.jpg', 1),
+  (92008, 91003, 'after', 'https://cdn.example.com/9002-pin1-after-1.jpg', 1),
+  (92009, 91004, 'before', 'https://cdn.example.com/9002-pin2-before-1.jpg', 1),
+  (92010, 91004, 'after', 'https://cdn.example.com/9002-pin2-after-1.jpg', 1)
+ON CONFLICT DO NOTHING;

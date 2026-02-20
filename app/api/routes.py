@@ -5,6 +5,9 @@ from app.config import settings
 from app.db.session import get_db
 from app.schemas.admin import (
     AdminBlogPostCreate,
+    AdminFloorPlanPinCreate,
+    AdminFloorPlanPinResponse,
+    AdminFloorPlanPinUpdate,
     AdminBlogPostResponse,
     AdminBlogPostUpdate,
     AdminPortfolioCreate,
@@ -27,9 +30,13 @@ from app.services.map_service import get_map_pins, get_nearby_complexes
 from app.services.admin_service import (
     create_admin_portfolio,
     create_blog_post,
+    create_floor_plan_pin,
+    delete_floor_plan_pin,
     list_admin_portfolios,
+    list_floor_plan_pins,
     list_blog_posts,
     update_admin_portfolio,
+    update_floor_plan_pin,
     update_blog_post,
 )
 from app.services.portfolio_service import get_complex_detail, list_portfolios
@@ -44,7 +51,7 @@ def require_admin_key(x_admin_key: str | None = Header(default=None, alias="X-Ad
 
 
 admin_router = APIRouter(
-    prefix="/api/v1/admin",
+    prefix="/admin",
     tags=["admin"],
     dependencies=[Depends(require_admin_key)],
 )
@@ -261,6 +268,53 @@ def admin_portfolio_patch(portfolio_id: int, payload: AdminPortfolioUpdate, db: 
         published_at=row.published_at,
         created_at=row.created_at,
     )
+
+
+@admin_router.get(
+    "/portfolios/{portfolio_id}/floor-plan-pins",
+    response_model=list[AdminFloorPlanPinResponse],
+    summary="포트폴리오 평면도 핀 목록 조회",
+)
+def admin_floor_plan_pins(portfolio_id: int, db: Session = Depends(get_db)):
+    return list_floor_plan_pins(db, portfolio_id=portfolio_id)
+
+
+@admin_router.post(
+    "/portfolios/{portfolio_id}/floor-plan-pins",
+    response_model=AdminFloorPlanPinResponse,
+    status_code=201,
+    summary="포트폴리오 평면도 핀 생성",
+)
+def admin_floor_plan_pin_create(
+    portfolio_id: int,
+    payload: AdminFloorPlanPinCreate,
+    db: Session = Depends(get_db),
+):
+    return create_floor_plan_pin(db, portfolio_id=portfolio_id, payload=payload)
+
+
+@admin_router.patch(
+    "/floor-plan-pins/{pin_id}",
+    response_model=AdminFloorPlanPinResponse,
+    summary="포트폴리오 평면도 핀 수정",
+)
+def admin_floor_plan_pin_patch(pin_id: int, payload: AdminFloorPlanPinUpdate, db: Session = Depends(get_db)):
+    row = update_floor_plan_pin(db, pin_id=pin_id, payload=payload)
+    if row is None:
+        raise HTTPException(status_code=404, detail="floor plan pin not found")
+    return row
+
+
+@admin_router.delete(
+    "/floor-plan-pins/{pin_id}",
+    status_code=204,
+    summary="포트폴리오 평면도 핀 삭제",
+)
+def admin_floor_plan_pin_delete(pin_id: int, db: Session = Depends(get_db)):
+    deleted = delete_floor_plan_pin(db, pin_id=pin_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="floor plan pin not found")
+    return None
 
 
 @admin_router.get(

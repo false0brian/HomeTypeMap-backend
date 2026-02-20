@@ -84,6 +84,35 @@ class AdminPortfolioResponse(BaseModel):
     created_at: datetime
 
 
+class AdminFloorPlanPinCreate(BaseModel):
+    x_ratio: float = Field(..., ge=0, le=100)
+    y_ratio: float = Field(..., ge=0, le=100)
+    title: str | None = Field(default=None, max_length=120)
+    sort_order: int = Field(default=0, ge=0)
+    before_image_urls: list[str] = []
+    after_image_urls: list[str] = []
+
+
+class AdminFloorPlanPinUpdate(BaseModel):
+    x_ratio: float | None = Field(default=None, ge=0, le=100)
+    y_ratio: float | None = Field(default=None, ge=0, le=100)
+    title: str | None = Field(default=None, max_length=120)
+    sort_order: int | None = Field(default=None, ge=0)
+    before_image_urls: list[str] | None = None
+    after_image_urls: list[str] | None = None
+
+
+class AdminFloorPlanPinResponse(BaseModel):
+    pin_id: int
+    portfolio_id: int
+    x_ratio: float
+    y_ratio: float
+    title: str | None = None
+    sort_order: int
+    before_image_urls: list[str] = []
+    after_image_urls: list[str] = []
+
+
 class AdminBlogPostBase(BaseModel):
     vendor_id: int | None = None
     title: str = Field(..., min_length=1, max_length=220)

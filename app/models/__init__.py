@@ -2,6 +2,8 @@ from app.models.entities import (
     BlogPost,
     Complex,
     FloorPlan,
+    FloorPlanPin,
+    FloorPlanPinImage,
     Location,
     Portfolio,
     QuoteRequest,
@@ -18,6 +20,8 @@ __all__ = [
     "Vendor",
     "BlogPost",
     "FloorPlan",
+    "FloorPlanPin",
+    "FloorPlanPinImage",
     "UserFavorite",
     "QuoteRequest",
 ]

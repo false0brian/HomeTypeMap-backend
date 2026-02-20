@@ -98,6 +98,28 @@ CREATE TABLE IF NOT EXISTS floor_plans (
   embedding TEXT
 );
 
+CREATE TABLE IF NOT EXISTS floor_plan_pins (
+  id BIGINT PRIMARY KEY,
+  portfolio_id BIGINT NOT NULL REFERENCES portfolios(id) ON DELETE CASCADE,
+  x_ratio NUMERIC(5,2) NOT NULL,
+  y_ratio NUMERIC(5,2) NOT NULL,
+  title VARCHAR(120),
+  sort_order INT NOT NULL DEFAULT 0,
+  CONSTRAINT ck_floor_plan_pins_x_ratio_range CHECK (x_ratio >= 0 AND x_ratio <= 100),
+  CONSTRAINT ck_floor_plan_pins_y_ratio_range CHECK (y_ratio >= 0 AND y_ratio <= 100)
+);
+CREATE INDEX IF NOT EXISTS ix_floor_plan_pins_portfolio_sort ON floor_plan_pins (portfolio_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS floor_plan_pin_images (
+  id BIGINT PRIMARY KEY,
+  floor_plan_pin_id BIGINT NOT NULL REFERENCES floor_plan_pins(id) ON DELETE CASCADE,
+  image_side VARCHAR(10) NOT NULL,
+  image_url VARCHAR(500) NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  CONSTRAINT ck_floor_plan_pin_images_side CHECK (image_side IN ('before','after'))
+);
+CREATE INDEX IF NOT EXISTS ix_floor_plan_pin_images_pin_side_sort ON floor_plan_pin_images (floor_plan_pin_id, image_side, sort_order);
+
 CREATE TABLE IF NOT EXISTS user_favorites (
   id BIGINT PRIMARY KEY,
   user_key VARCHAR(80) NOT NULL,

@@ -124,6 +124,7 @@ class Portfolio(Base):
     complex: Mapped[Complex] = relationship(back_populates="portfolios")
     unit_type: Mapped[UnitType] = relationship(back_populates="portfolios")
     vendor: Mapped[Vendor | None] = relationship(back_populates="portfolios")
+    floor_plan_pins: Mapped[list[FloorPlanPin]] = relationship(back_populates="portfolio", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint(
@@ -177,6 +178,43 @@ class FloorPlan(Base):
     embedding: Mapped[str | None] = mapped_column(Text)
 
     unit_type: Mapped[UnitType] = relationship(back_populates="floor_plans")
+
+
+class FloorPlanPin(Base):
+    __tablename__ = "floor_plan_pins"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    portfolio_id: Mapped[int] = mapped_column(ForeignKey("portfolios.id", ondelete="CASCADE"), nullable=False)
+    x_ratio: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    y_ratio: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(120))
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+    portfolio: Mapped[Portfolio] = relationship(back_populates="floor_plan_pins")
+    images: Mapped[list[FloorPlanPinImage]] = relationship(back_populates="pin", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        CheckConstraint("x_ratio >= 0 AND x_ratio <= 100", name="ck_floor_plan_pins_x_ratio_range"),
+        CheckConstraint("y_ratio >= 0 AND y_ratio <= 100", name="ck_floor_plan_pins_y_ratio_range"),
+        Index("ix_floor_plan_pins_portfolio_sort", "portfolio_id", "sort_order"),
+    )
+
+
+class FloorPlanPinImage(Base):
+    __tablename__ = "floor_plan_pin_images"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    floor_plan_pin_id: Mapped[int] = mapped_column(ForeignKey("floor_plan_pins.id", ondelete="CASCADE"), nullable=False)
+    image_side: Mapped[str] = mapped_column(String(10), nullable=False)
+    image_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+    pin: Mapped[FloorPlanPin] = relationship(back_populates="images")
+
+    __table_args__ = (
+        CheckConstraint("image_side IN ('before','after')", name="ck_floor_plan_pin_images_side"),
+        Index("ix_floor_plan_pin_images_pin_side_sort", "floor_plan_pin_id", "image_side", "sort_order"),
+    )
 
 
 class UserFavorite(Base):
