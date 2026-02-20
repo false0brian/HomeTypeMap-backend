@@ -18,6 +18,7 @@ class UnitTypeChip(BaseModel):
     room_count: int | None = None
     bathroom_count: int | None = None
     structure_keyword: str | None = None
+    floor_plan_image_url: str | None = None
     portfolio_count: int
 
 

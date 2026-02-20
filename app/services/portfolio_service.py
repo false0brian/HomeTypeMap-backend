@@ -1,7 +1,7 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
-from app.models import Complex, Portfolio, UnitType, Vendor
+from app.models import Complex, FloorPlan, Portfolio, UnitType, Vendor
 from app.schemas.portfolio import (
     ComplexDetailResponse,
     PortfolioCard,
@@ -24,8 +24,10 @@ def get_complex_detail(db: Session, complex_id: int) -> ComplexDetailResponse | 
             UnitType.room_count,
             UnitType.bathroom_count,
             UnitType.structure_keyword,
+            func.min(FloorPlan.image_url).label("floor_plan_image_url"),
             func.count(Portfolio.id).label("portfolio_count"),
         )
+        .outerjoin(FloorPlan, FloorPlan.unit_type_id == UnitType.id)
         .outerjoin(Portfolio, Portfolio.unit_type_id == UnitType.id)
         .where(UnitType.complex_id == complex_id)
         .group_by(UnitType.id)
@@ -46,6 +48,7 @@ def get_complex_detail(db: Session, complex_id: int) -> ComplexDetailResponse | 
                 room_count=row.room_count,
                 bathroom_count=row.bathroom_count,
                 structure_keyword=row.structure_keyword,
+                floor_plan_image_url=row.floor_plan_image_url,
                 portfolio_count=row.portfolio_count,
             )
             for row in type_rows
