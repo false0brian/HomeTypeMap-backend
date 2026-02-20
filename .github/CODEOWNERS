@@ -1,0 +1,8 @@
+# Global owner
+* @false0brian
+
+# Backend critical paths
+/app/ @false0brian
+/alembic/ @false0brian
+/tests/ @false0brian
+/.github/ @false0brian
