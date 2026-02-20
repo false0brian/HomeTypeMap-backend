@@ -1,0 +1,23 @@
+name: Feature Request
+description: Propose backend/API feature
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      placeholder: What problem are we solving?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API/Domain Solution
+      placeholder: Endpoint/model/flow proposal
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility
+      placeholder: non-breaking or breaking (v2 needed?)
