@@ -1,7 +1,7 @@
 from sqlalchemy import Select, exists, func, select
 from sqlalchemy.orm import Session, aliased
 
-from app.models import Complex, Portfolio
+from app.models import Complex, Portfolio, UnitType
 from app.schemas.map import ClusterPin, ComplexPin, MapBoundsQuery, MapPinsResponse, NearbyComplexesResponse
 
 
@@ -15,17 +15,34 @@ def _bbox_base_query(bounds: MapBoundsQuery) -> Select:
     )
 
 
-def get_map_pins(db: Session, bounds: MapBoundsQuery, vendor_id: int | None = None) -> MapPinsResponse:
-    vendor_portfolio = aliased(Portfolio)
-    vendor_exists = (
-        exists(
-            select(1)
-            .select_from(vendor_portfolio)
-            .where(vendor_portfolio.complex_id == Complex.id, vendor_portfolio.vendor_id == vendor_id)
-        )
-        if vendor_id is not None
-        else None
-    )
+def _complex_filter_exists(
+    vendor_id: int | None = None,
+    work_scope: str | None = None,
+    min_area: float | None = None,
+):
+    if vendor_id is None and work_scope is None and min_area is None:
+        return None
+
+    p = aliased(Portfolio)
+    u = aliased(UnitType)
+    stmt = select(1).select_from(p).join(u, u.id == p.unit_type_id).where(p.complex_id == Complex.id)
+    if vendor_id is not None:
+        stmt = stmt.where(p.vendor_id == vendor_id)
+    if work_scope is not None:
+        stmt = stmt.where(p.work_scope == work_scope)
+    if min_area is not None:
+        stmt = stmt.where(u.exclusive_area_m2 >= min_area)
+    return exists(stmt)
+
+
+def get_map_pins(
+    db: Session,
+    bounds: MapBoundsQuery,
+    vendor_id: int | None = None,
+    work_scope: str | None = None,
+    min_area: float | None = None,
+) -> MapPinsResponse:
+    complex_filter_exists = _complex_filter_exists(vendor_id=vendor_id, work_scope=work_scope, min_area=min_area)
 
     if bounds.zoom <= 11:
         precision = 2 if bounds.zoom <= 8 else 3
@@ -44,8 +61,8 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery, vendor_id: int | None = No
             .where(Complex.centroid_longitude >= bounds.west)
             .where(Complex.centroid_longitude <= bounds.east)
         )
-        if vendor_exists is not None:
-            stmt = stmt.where(vendor_exists)
+        if complex_filter_exists is not None:
+            stmt = stmt.where(complex_filter_exists)
 
         rows = db.execute(
             stmt.group_by(lat_bucket, lng_bucket).order_by(func.count(Complex.id).desc()).limit(300)
@@ -64,10 +81,17 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery, vendor_id: int | None = No
             complexes=[],
         )
 
+    count_filters = []
+    if vendor_id is not None:
+        count_filters.append(Portfolio.vendor_id == vendor_id)
+    if work_scope is not None:
+        count_filters.append(Portfolio.work_scope == work_scope)
+    if min_area is not None:
+        count_filters.append(UnitType.exclusive_area_m2 >= min_area)
     portfolio_count_expr = (
         func.count(Portfolio.id)
-        if vendor_id is None
-        else func.count(Portfolio.id).filter(Portfolio.vendor_id == vendor_id)
+        if not count_filters
+        else func.count(Portfolio.id).filter(*count_filters)
     )
     stmt = (
         select(
@@ -78,14 +102,15 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery, vendor_id: int | None = No
             portfolio_count_expr.label("portfolio_count"),
         )
         .outerjoin(Portfolio, Portfolio.complex_id == Complex.id)
+        .outerjoin(UnitType, UnitType.id == Portfolio.unit_type_id)
         .where(Complex.centroid_latitude >= bounds.south)
         .where(Complex.centroid_latitude <= bounds.north)
         .where(Complex.centroid_longitude >= bounds.west)
         .where(Complex.centroid_longitude <= bounds.east)
         .group_by(Complex.id)
     )
-    if vendor_exists is not None:
-        stmt = stmt.where(vendor_exists)
+    if count_filters:
+        stmt = stmt.having(portfolio_count_expr > 0)
     rows = db.execute(stmt.order_by(portfolio_count_expr.desc(), Complex.id).limit(1000)).all()
 
     return MapPinsResponse(
@@ -110,6 +135,8 @@ def get_nearby_complexes(
     radius_m: int,
     limit: int = 200,
     vendor_id: int | None = None,
+    work_scope: str | None = None,
+    min_area: float | None = None,
 ) -> NearbyComplexesResponse:
     earth_radius_m = 6371000
     distance_expr = earth_radius_m * func.acos(
@@ -125,10 +152,17 @@ def get_nearby_complexes(
         )
     )
 
+    count_filters = []
+    if vendor_id is not None:
+        count_filters.append(Portfolio.vendor_id == vendor_id)
+    if work_scope is not None:
+        count_filters.append(Portfolio.work_scope == work_scope)
+    if min_area is not None:
+        count_filters.append(UnitType.exclusive_area_m2 >= min_area)
     portfolio_count_expr = (
         func.count(Portfolio.id)
-        if vendor_id is None
-        else func.count(Portfolio.id).filter(Portfolio.vendor_id == vendor_id)
+        if not count_filters
+        else func.count(Portfolio.id).filter(*count_filters)
     )
     stmt = (
         select(
@@ -140,10 +174,11 @@ def get_nearby_complexes(
             distance_expr.label("distance_m"),
         )
         .outerjoin(Portfolio, Portfolio.complex_id == Complex.id)
+        .outerjoin(UnitType, UnitType.id == Portfolio.unit_type_id)
         .group_by(Complex.id)
         .having(distance_expr <= radius_m)
     )
-    if vendor_id is not None:
+    if count_filters:
         stmt = stmt.having(portfolio_count_expr > 0)
     rows = db.execute(stmt.order_by(distance_expr.asc(), Complex.id.asc()).limit(limit)).all()
 

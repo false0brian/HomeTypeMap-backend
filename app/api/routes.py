@@ -70,10 +70,12 @@ def map_pins(
     east: float = Query(..., description="지도 우측 경도", examples=[127.2]),
     zoom: int = Query(..., ge=0, le=22, description="클라이언트 지도 줌 레벨", examples=[13]),
     vendor_id: int | None = Query(default=None, ge=1, description="업체 ID"),
+    work_scope: WorkScopeType | None = Query(default=None, description="공사 범위"),
+    min_area: float | None = Query(default=None, ge=0, description="전용면적 최소(m2)"),
     db: Session = Depends(get_db),
 ):
     bounds = MapBoundsQuery(south=south, west=west, north=north, east=east, zoom=zoom)
-    return get_map_pins(db, bounds, vendor_id=vendor_id)
+    return get_map_pins(db, bounds, vendor_id=vendor_id, work_scope=work_scope, min_area=min_area)
 
 
 @router.get(
@@ -87,10 +89,21 @@ def map_nearby(
     lng: float = Query(..., ge=-180, le=180, description="기준 경도"),
     radius_m: int = Query(default=3000, ge=200, le=50000, description="검색 반경(미터)"),
     vendor_id: int | None = Query(default=None, ge=1, description="업체 ID"),
+    work_scope: WorkScopeType | None = Query(default=None, description="공사 범위"),
+    min_area: float | None = Query(default=None, ge=0, description="전용면적 최소(m2)"),
     limit: int = Query(default=200, ge=1, le=1000, description="최대 반환 개수"),
     db: Session = Depends(get_db),
 ):
-    return get_nearby_complexes(db, latitude=lat, longitude=lng, radius_m=radius_m, limit=limit, vendor_id=vendor_id)
+    return get_nearby_complexes(
+        db,
+        latitude=lat,
+        longitude=lng,
+        radius_m=radius_m,
+        limit=limit,
+        vendor_id=vendor_id,
+        work_scope=work_scope,
+        min_area=min_area,
+    )
 
 
 @router.get(
