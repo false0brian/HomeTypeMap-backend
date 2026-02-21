@@ -20,7 +20,7 @@ def test_map_pins_returns_service_payload(client, monkeypatch) -> None:
         "complexes": [],
     }
 
-    monkeypatch.setattr(routes, "get_map_pins", lambda db, bounds: expected)
+    monkeypatch.setattr(routes, "get_map_pins", lambda db, bounds, vendor_id=None: expected)
 
     response = client.get("/api/v1/map/pins?south=37.4&west=127.0&north=37.6&east=127.2&zoom=10")
     assert response.status_code == 200
@@ -44,7 +44,11 @@ def test_map_nearby_returns_service_payload(client, monkeypatch) -> None:
         ],
     }
 
-    monkeypatch.setattr(routes, "get_nearby_complexes", lambda db, latitude, longitude, radius_m, limit: expected)
+    monkeypatch.setattr(
+        routes,
+        "get_nearby_complexes",
+        lambda db, latitude, longitude, radius_m, limit, vendor_id=None: expected,
+    )
 
     response = client.get("/api/v1/map/nearby?lat=37.49&lng=127.10&radius_m=3000")
     assert response.status_code == 200

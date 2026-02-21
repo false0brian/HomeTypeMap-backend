@@ -1,5 +1,5 @@
-from sqlalchemy import Select, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Select, exists, func, select
+from sqlalchemy.orm import Session, aliased
 
 from app.models import Complex, Portfolio
 from app.schemas.map import ClusterPin, ComplexPin, MapBoundsQuery, MapPinsResponse, NearbyComplexesResponse
@@ -15,13 +15,24 @@ def _bbox_base_query(bounds: MapBoundsQuery) -> Select:
     )
 
 
-def get_map_pins(db: Session, bounds: MapBoundsQuery) -> MapPinsResponse:
+def get_map_pins(db: Session, bounds: MapBoundsQuery, vendor_id: int | None = None) -> MapPinsResponse:
+    vendor_portfolio = aliased(Portfolio)
+    vendor_exists = (
+        exists(
+            select(1)
+            .select_from(vendor_portfolio)
+            .where(vendor_portfolio.complex_id == Complex.id, vendor_portfolio.vendor_id == vendor_id)
+        )
+        if vendor_id is not None
+        else None
+    )
+
     if bounds.zoom <= 11:
         precision = 2 if bounds.zoom <= 8 else 3
         lat_bucket = func.round(Complex.centroid_latitude, precision)
         lng_bucket = func.round(Complex.centroid_longitude, precision)
 
-        rows = db.execute(
+        stmt = (
             select(
                 lat_bucket.label("lat_bucket"),
                 lng_bucket.label("lng_bucket"),
@@ -32,9 +43,12 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery) -> MapPinsResponse:
             .where(Complex.centroid_latitude <= bounds.north)
             .where(Complex.centroid_longitude >= bounds.west)
             .where(Complex.centroid_longitude <= bounds.east)
-            .group_by(lat_bucket, lng_bucket)
-            .order_by(func.count(Complex.id).desc())
-            .limit(300)
+        )
+        if vendor_exists is not None:
+            stmt = stmt.where(vendor_exists)
+
+        rows = db.execute(
+            stmt.group_by(lat_bucket, lng_bucket).order_by(func.count(Complex.id).desc()).limit(300)
         ).all()
 
         return MapPinsResponse(
@@ -50,13 +64,18 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery) -> MapPinsResponse:
             complexes=[],
         )
 
-    rows = db.execute(
+    portfolio_count_expr = (
+        func.count(Portfolio.id)
+        if vendor_id is None
+        else func.count(Portfolio.id).filter(Portfolio.vendor_id == vendor_id)
+    )
+    stmt = (
         select(
             Complex.id,
             Complex.name,
             Complex.centroid_latitude,
             Complex.centroid_longitude,
-            func.count(Portfolio.id).label("portfolio_count"),
+            portfolio_count_expr.label("portfolio_count"),
         )
         .outerjoin(Portfolio, Portfolio.complex_id == Complex.id)
         .where(Complex.centroid_latitude >= bounds.south)
@@ -64,9 +83,10 @@ def get_map_pins(db: Session, bounds: MapBoundsQuery) -> MapPinsResponse:
         .where(Complex.centroid_longitude >= bounds.west)
         .where(Complex.centroid_longitude <= bounds.east)
         .group_by(Complex.id)
-        .order_by(func.count(Portfolio.id).desc(), Complex.id)
-        .limit(1000)
-    ).all()
+    )
+    if vendor_exists is not None:
+        stmt = stmt.where(vendor_exists)
+    rows = db.execute(stmt.order_by(portfolio_count_expr.desc(), Complex.id).limit(1000)).all()
 
     return MapPinsResponse(
         clusters=[],
@@ -89,6 +109,7 @@ def get_nearby_complexes(
     longitude: float,
     radius_m: int,
     limit: int = 200,
+    vendor_id: int | None = None,
 ) -> NearbyComplexesResponse:
     earth_radius_m = 6371000
     distance_expr = earth_radius_m * func.acos(
@@ -104,21 +125,27 @@ def get_nearby_complexes(
         )
     )
 
-    rows = db.execute(
+    portfolio_count_expr = (
+        func.count(Portfolio.id)
+        if vendor_id is None
+        else func.count(Portfolio.id).filter(Portfolio.vendor_id == vendor_id)
+    )
+    stmt = (
         select(
             Complex.id,
             Complex.name,
             Complex.centroid_latitude,
             Complex.centroid_longitude,
-            func.count(Portfolio.id).label("portfolio_count"),
+            portfolio_count_expr.label("portfolio_count"),
             distance_expr.label("distance_m"),
         )
         .outerjoin(Portfolio, Portfolio.complex_id == Complex.id)
         .group_by(Complex.id)
         .having(distance_expr <= radius_m)
-        .order_by(distance_expr.asc(), Complex.id.asc())
-        .limit(limit)
-    ).all()
+    )
+    if vendor_id is not None:
+        stmt = stmt.having(portfolio_count_expr > 0)
+    rows = db.execute(stmt.order_by(distance_expr.asc(), Complex.id.asc()).limit(limit)).all()
 
     return NearbyComplexesResponse(
         center_latitude=latitude,
