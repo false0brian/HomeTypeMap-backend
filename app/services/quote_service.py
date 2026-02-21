@@ -8,6 +8,8 @@ from app.models import QuoteRequest
 def create_quote_request(
     db: Session,
     user_key: str,
+    requester_name: str | None,
+    requester_email: str | None,
     vendor_id: int | None,
     portfolio_id: int | None,
     preferred_date,
@@ -18,6 +20,8 @@ def create_quote_request(
 
     req = QuoteRequest(
         user_key=user_key,
+        requester_name=requester_name,
+        requester_email=requester_email,
         vendor_id=vendor_id,
         portfolio_id=portfolio_id,
         preferred_date=preferred_date,

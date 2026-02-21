@@ -1,4 +1,6 @@
 from app.models.entities import (
+    AppUser,
+    AuthSession,
     BlogPost,
     Complex,
     FloorPlan,
@@ -23,5 +25,7 @@ __all__ = [
     "FloorPlanPin",
     "FloorPlanPinImage",
     "UserFavorite",
+    "AppUser",
+    "AuthSession",
     "QuoteRequest",
 ]

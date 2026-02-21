@@ -10,6 +10,7 @@ app = FastAPI(
         {"name": "complex", "description": "단지 상세/타입/포트폴리오"},
         {"name": "favorite", "description": "즐겨찾기"},
         {"name": "quote", "description": "견적 요청"},
+        {"name": "auth", "description": "회원가입/로그인"},
         {"name": "admin", "description": "관리자 포트폴리오/블로그 관리"},
     ],
 )

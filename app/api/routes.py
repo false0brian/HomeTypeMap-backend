@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AdminPortfolioUpdate,
     PublishStatus,
 )
+from app.schemas.auth import AuthTokenResponse, AuthUserResponse, LoginRequest, SignupRequest
 from app.schemas.map import MapBoundsQuery, MapPinsResponse, NearbyComplexesResponse
 from app.schemas.portfolio import (
     ComplexDetailResponse,
@@ -25,6 +26,7 @@ from app.schemas.portfolio import (
     WorkScopeType,
 )
 from app.schemas.vendor import QuoteRequestCreate, QuoteRequestResponse
+from app.services.auth_service import get_user_by_token, login, logout, signup
 from app.services.favorite_service import create_favorite, list_favorites
 from app.services.map_service import get_map_pins, get_nearby_complexes
 from app.services.admin_service import (
@@ -55,6 +57,19 @@ admin_router = APIRouter(
     tags=["admin"],
     dependencies=[Depends(require_admin_key)],
 )
+
+
+def _bearer_token(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2:
+        return None
+    scheme, token = parts
+    if scheme.lower() != "bearer":
+        return None
+    token = token.strip()
+    return token or None
 
 
 @router.get(
@@ -180,16 +195,104 @@ def favorite_list(user_key: str = Query(...), db: Session = Depends(get_db)):
 
 
 @router.post(
+    "/auth/signup",
+    response_model=AuthTokenResponse,
+    status_code=201,
+    tags=["auth"],
+    summary="회원가입",
+)
+def auth_signup(payload: SignupRequest, db: Session = Depends(get_db)):
+    token, expires_at, user = signup(db, email=payload.email, password=payload.password, display_name=payload.display_name)
+    return AuthTokenResponse(
+        access_token=token,
+        expires_at=expires_at,
+        user=AuthUserResponse(
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            user_key=user.user_key,
+        ),
+    )
+
+
+@router.post(
+    "/auth/login",
+    response_model=AuthTokenResponse,
+    tags=["auth"],
+    summary="로그인",
+)
+def auth_login(payload: LoginRequest, db: Session = Depends(get_db)):
+    token, expires_at, user = login(db, email=payload.email, password=payload.password)
+    return AuthTokenResponse(
+        access_token=token,
+        expires_at=expires_at,
+        user=AuthUserResponse(
+            user_id=user.id,
+            email=user.email,
+            display_name=user.display_name,
+            user_key=user.user_key,
+        ),
+    )
+
+
+@router.get(
+    "/auth/me",
+    response_model=AuthUserResponse,
+    tags=["auth"],
+    summary="현재 로그인 사용자 조회",
+)
+def auth_me(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    db: Session = Depends(get_db),
+):
+    token = _bearer_token(authorization)
+    user = get_user_by_token(db, token or "")
+    if user is None:
+        raise HTTPException(status_code=401, detail="invalid or expired token")
+    return AuthUserResponse(user_id=user.id, email=user.email, display_name=user.display_name, user_key=user.user_key)
+
+
+@router.post(
+    "/auth/logout",
+    status_code=204,
+    tags=["auth"],
+    summary="로그아웃",
+)
+def auth_logout(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    db: Session = Depends(get_db),
+):
+    token = _bearer_token(authorization)
+    if token:
+        logout(db, token)
+    return None
+
+
+@router.post(
     "/quote-requests",
     response_model=QuoteRequestResponse,
     status_code=201,
     tags=["quote"],
     summary="업체 문의/견적 요청 생성",
 )
-def quote_request_create(payload: QuoteRequestCreate, db: Session = Depends(get_db)):
+def quote_request_create(
+    payload: QuoteRequestCreate,
+    authorization: str | None = Header(default=None, alias="Authorization"),
+    db: Session = Depends(get_db),
+):
+    token = _bearer_token(authorization)
+    auth_user = get_user_by_token(db, token or "") if token else None
+    user_key = auth_user.user_key if auth_user is not None else payload.user_key
+    if not user_key:
+        raise HTTPException(status_code=422, detail="user_key is required")
+    requester_name = auth_user.display_name if auth_user is not None else payload.requester_name
+    requester_email = auth_user.email if auth_user is not None else payload.requester_email
+
     row = create_quote_request(
         db,
-        user_key=payload.user_key,
+        user_key=user_key,
+        requester_name=requester_name,
+        requester_email=requester_email,
         vendor_id=payload.vendor_id,
         portfolio_id=payload.portfolio_id,
         preferred_date=payload.preferred_date,
@@ -198,8 +301,11 @@ def quote_request_create(payload: QuoteRequestCreate, db: Session = Depends(get_
     return QuoteRequestResponse(
         quote_request_id=row.id,
         user_key=row.user_key,
+        requester_name=row.requester_name,
+        requester_email=row.requester_email,
         vendor_id=row.vendor_id,
         portfolio_id=row.portfolio_id,
+        created_at=row.created_at,
     )
 
 

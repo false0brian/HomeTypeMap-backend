@@ -123,22 +123,57 @@ def test_quote_request_create(client, monkeypatch) -> None:
     class DummyQuote:
         id = 300
         user_key = "u-1"
+        requester_name = "테스트"
+        requester_email = "u-1@example.com"
         vendor_id = 501
         portfolio_id = None
+        created_at = "2026-02-21T00:00:00Z"
 
     monkeypatch.setattr(
         routes,
         "create_quote_request",
-        lambda db, user_key, vendor_id, portfolio_id, preferred_date, message: DummyQuote(),
+        lambda db, user_key, requester_name, requester_email, vendor_id, portfolio_id, preferred_date, message: DummyQuote(),
     )
+    monkeypatch.setattr(routes, "get_user_by_token", lambda db, token: None)
 
     response = client.post("/api/v1/quote-requests", json={"user_key": "u-1", "vendor_id": 501})
     assert response.status_code == 201
-    assert response.json() == {"quote_request_id": 300, "user_key": "u-1", "vendor_id": 501, "portfolio_id": None}
+    assert response.json() == {
+        "quote_request_id": 300,
+        "user_key": "u-1",
+        "requester_name": "테스트",
+        "requester_email": "u-1@example.com",
+        "vendor_id": 501,
+        "portfolio_id": None,
+        "created_at": "2026-02-21T00:00:00Z",
+    }
 
 
 def test_admin_requires_key(client) -> None:
     response = client.get("/api/v1/admin/portfolios")
+    assert response.status_code == 401
+
+
+def test_auth_signup(client, monkeypatch) -> None:
+    class DummyUser:
+        id = 10
+        email = "demo@example.com"
+        display_name = "Demo"
+        user_key = "demo-123"
+
+    monkeypatch.setattr(routes, "signup", lambda db, email, password, display_name: ("token-1", "2026-12-31T00:00:00Z", DummyUser()))
+    response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "demo@example.com", "password": "12345678", "display_name": "Demo"},
+    )
+    assert response.status_code == 201
+    assert response.json()["access_token"] == "token-1"
+    assert response.json()["user"]["email"] == "demo@example.com"
+
+
+def test_auth_me_unauthorized(client, monkeypatch) -> None:
+    monkeypatch.setattr(routes, "get_user_by_token", lambda db, token: None)
+    response = client.get("/api/v1/auth/me")
     assert response.status_code == 401
 
 
