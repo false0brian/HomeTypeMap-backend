@@ -119,6 +119,7 @@ def complex_portfolios(
     budget_max_krw: int | None = Query(default=None, ge=0, description="예산 상한(원)", examples=[50000000]),
     work_scope: WorkScopeType | None = Query(default=None, description="공사 범위"),
     style: str | None = Query(default=None, description="스타일 키워드", examples=["minimal"]),
+    vendor_id: int | None = Query(default=None, ge=1, description="업체 ID", examples=[501]),
     limit: int = Query(default=30, ge=1, le=100, description="페이지 크기"),
     offset: int = Query(default=0, ge=0, description="페이지 오프셋"),
     db: Session = Depends(get_db),
@@ -130,6 +131,7 @@ def complex_portfolios(
         budget_max_krw=budget_max_krw,
         work_scope=work_scope,
         style=style,
+        vendor_id=vendor_id,
         limit=limit,
         offset=offset,
     )

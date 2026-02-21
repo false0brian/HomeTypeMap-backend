@@ -178,6 +178,8 @@ def list_portfolios(
         conditions.append(Portfolio.work_scope == query.work_scope)
     if query.style is not None:
         conditions.append(Portfolio.style == query.style)
+    if query.vendor_id is not None:
+        conditions.append(Portfolio.vendor_id == query.vendor_id)
 
     base_stmt = (
         select(
